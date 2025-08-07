@@ -74,4 +74,52 @@ gcloud compute instance-groups managed create lb-backend-group \
 gcloud compute firewall-rules create fw-allow-health-check \
   --network=default \
   --allow tcp:80 \
-  --s
+  --source-ranges=130.211.0.0/22,35.191.0.0/16 \
+  --target-tags=allow-health-check
+
+gcloud compute health-checks create http http-basic-check \
+  --port 80
+
+gcloud compute instance-groups managed set-named-ports lb-backend-group \
+  --named-ports=http:80 \
+  --zone=$ZONE
+
+gcloud compute backend-services create web-backend-service \
+  --protocol=HTTP \
+  --health-checks=http-basic-check \
+  --port-name=http \
+  --global
+
+gcloud compute backend-services add-backend web-backend-service \
+  --instance-group=lb-backend-group \
+  --instance-group-zone=$ZONE \
+  --global
+
+gcloud compute url-maps create web-map-http \
+  --default-service=web-backend-service
+
+gcloud compute target-http-proxies create http-lb-proxy \
+  --url-map=web-map-http
+
+gcloud compute addresses create lb-ipv4-1 \
+  --ip-version=IPV4 \
+  --global
+
+gcloud compute forwarding-rules create http-content-rule \
+  --address=lb-ipv4-1 \
+  --global \
+  --target-http-proxy=http-lb-proxy \
+  --ports=80
+
+echo "${GREEN}${BOLD}✅ Tarea 3 completada: Balanceador HTTP operativo${RESET}"
+
+# -------------------- Mostrar IPs finales -----------------------
+echo ""
+echo "${YELLOW}${BOLD}🌍 IP pública del Balanceador de Red (Layer 4):${RESET}"
+gcloud compute addresses describe network-lb-ip-1 --region=$REGION --format="value(address)"
+echo ""
+echo "${YELLOW}${BOLD}🌍 IP pública del Balanceador HTTP (Layer 7):${RESET}"
+gcloud compute addresses describe lb-ipv4-1 --global --format="value(address)"
+
+echo ""
+echo "${BG_GREEN}${BOLD}🎉 LAB COMPLETADO EXITOSAMENTE. ¡Revisa tu puntuación en Qwiklabs!${RESET}"
